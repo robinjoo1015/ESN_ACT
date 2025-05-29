@@ -370,13 +370,28 @@ class ESNPolicy(nn.Module):
         # self.y_min = -1.604706048965454
         # self.y_max = 1.2544714212417603
 
-        self.model = TorchReservoirModel(load='/data/ysjoo/home/kcc2025/sim_transfer_cube/transfer_torch_n5000_c50_rc.pth.gz')
-        
+        # insertion
+        # self.model = TorchReservoirModel(load='/data/ysjoo/home/projects/esn/checkpoint/torch_reservoir/resnet/250520/sim_insertion_scripted/n10000_opt10_train10/250519_insertion_n10000_opt10_train10.pth.gz')
+        # transfer
+        # self.model = TorchReservoirModel(load='/data/ysjoo/home/projects/esn/checkpoint/torch_reservoir/resnet/250520/sim_transfer_cube_scripted/n5000/250519_transfer_n5000_std_best.pth.gz')
+        # multi
+        self.model = TorchReservoirModel(load='/data/ysjoo/home/projects/esn/checkpoint/torch_reservoir/resnet/250520/sim_multi/n10000_opt10_train40/250519_multi_n10000_opt10_train40.pth.gz')
+
         # 250508 standardization
-        self.x_mean = self.model.data_info['x_mean']
-        self.x_std = self.model.data_info['x_std']
+        # self.x_mean = self.model.data_info['x_mean']
+        # self.x_std = self.model.data_info['x_std']
         self.y_mean = self.model.data_info['y_mean']
         self.y_std = self.model.data_info['y_std']
+        # 250508 normalization
+        self.x_min = self.model.data_info['x_min']
+        self.x_max = self.model.data_info['x_max']
+        # self.y_min = self.model.data_info['y_min']
+        # self.y_max = self.model.data_info['y_max']
+
+        # self.x_mean = torch.from_numpy(self.x_mean).to(self.device, dtype=torch.float64)
+        # self.x_std = torch.from_numpy(self.x_std).to(self.device, dtype=torch.float64)
+        # self.y_mean = torch.from_numpy(self.y_mean).to(self.device, dtype=torch.float64)
+        # self.y_std = torch.from_numpy(self.y_std).to(self.device, dtype=torch.float64)
 
 
     def __call__(self, qpos, image, actions=None, is_pad=None):
@@ -395,18 +410,38 @@ class ESNPolicy(nn.Module):
             # features = (features.to(dtype=torch.float64) - self.x_min) / (self.x_max - self.x_min)
             # resnet
             # features = features.numpy()
-            y_curr = (torch.from_numpy(qpos).to(self.device, dtype=torch.float64) - self.y_min) / (self.y_max - self.y_min)
+
+            # minmax normalization
+            # y_curr = (torch.from_numpy(qpos).to(self.device, dtype=torch.float64) - self.y_min) / (self.y_max - self.y_min)
             features = (features['0'].to(dtype=torch.float64) - self.x_min) / (self.x_max - self.x_min)
+            # standardization
+            # y_curr = torch.from_numpy((qpos - self.y_mean) / self.y_std).to(self.device, dtype=torch.float64)
+            # features = (features['0'].to(dtype=torch.float64) - self.x_mean) / self.x_std
+            # std + norm
+            # std_qpos = (qpos - self.y_mean) / self.y_std
+            # y_curr = torch.from_numpy((std_qpos - self.y_min) / (self.y_max - self.y_min)).to(self.device, dtype=torch.float64)
+            # std_feature = (features['0'].to(dtype=torch.float64) - self.x_mean) / self.x_std
+            # features = (std_feature - self.x_min) / (self.x_max - self.x_min)
 
             # # mobilenet
             # # input_feature = np.concatenate([features.reshape((28800)), y_curr.reshape((14))])
             # input_feature = torch.cat([features.reshape((28800)), y_curr.reshape((14))])
             # resnet
-            # input_feature = np.concatenate([features.reshape((28800)), y_curr.reshape((14))])
-            input_feature = torch.cat([features.reshape((153600)), y_curr.reshape((14))])
+            # input_feature = torch.cat([features.reshape((153600)), y_curr.reshape((14))])
+            # no joint input
+            input_feature = features
 
             step = self.model.step(u_t=input_feature.reshape((-1)))
-            a_hat = step.detach().cpu().numpy().reshape((-1)) * (self.y_max - self.y_min) + self.y_min
+
+            # minmax normalization
+            # a_hat = step.detach().cpu().numpy().reshape((-1)) * (self.y_max - self.y_min) + self.y_min
+            # standardization
+            a_hat = step.detach().cpu().numpy().reshape((-1)).reshape((50,14)) * self.y_std + self.y_mean
+            a_hat = a_hat.reshape((-1,))
+            # std + norm
+            # a_hat_norm = step.detach().cpu().numpy().reshape((-1)).reshape((50,14)) * (self.y_max - self.y_min) + self.y_min
+            # a_hat = a_hat_norm * self.y_std + self.y_mean
+            # a_hat = a_hat.reshape((-1,))
 
             # a_hat = readout_2.reshape((140)) * (self.y_max - self.y_min) + self.y_min
             # a_hat = readout_1.reshape((14)) * (self.y_max - self.y_min) + self.y_min

@@ -202,8 +202,8 @@ def eval_bc(config, ckpt_name, save_episode=True):
     #     query_frequency = 1
     #     num_queries = policy_config['num_queries']
 
-    max_timesteps = int(max_timesteps * 1) # may increase for real-world tasks
-    # max_timesteps = int(max_timesteps * 2) # may increase for real-world tasks
+    # max_timesteps = int(max_timesteps * 1) # may increase for real-world tasks
+    max_timesteps = int(max_timesteps * 2) # may increase for real-world tasks
 
     # episode 횟수
     num_rollouts = 50
@@ -330,7 +330,7 @@ def eval_bc(config, ckpt_name, save_episode=True):
         print(f'Rollout {rollout_id}\n{episode_return=}, {episode_highest_reward=}, {env_max_reward=}, Success: {episode_highest_reward==env_max_reward}')
 
         ##### save video
-        if save_episode and episode_return<3:
+        if save_episode:
             save_videos(image_list, DT, video_path=os.path.join(ckpt_dir, f'video{rollout_id}.mp4'))
 
     success_rate = np.mean(np.array(highest_rewards) == env_max_reward)
